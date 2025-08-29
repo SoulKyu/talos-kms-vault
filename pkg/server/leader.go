@@ -154,11 +154,11 @@ func (las *LeaderAwareServer) GetLeadershipInfo() LeadershipInfo {
 
 // LeadershipInfo contains information about the leadership state
 type LeadershipInfo struct {
-	IsLeader          bool   `json:"isLeader"`
-	IsActive          bool   `json:"isActive"`
-	CurrentLeader     string `json:"currentLeader"`
-	LeadershipChanges int64  `json:"leadershipChanges"`
-	AcquisitionErrors int64  `json:"acquisitionErrors"`
-	RenewalErrors     int64  `json:"renewalErrors"`
+	IsLeader          bool      `json:"isLeader"`
+	IsActive          bool      `json:"isActive"`
+	CurrentLeader     string    `json:"currentLeader"`
+	LeadershipChanges int64     `json:"leadershipChanges"`
+	AcquisitionErrors int64     `json:"acquisitionErrors"`
+	RenewalErrors     int64     `json:"renewalErrors"`
 	LastLeaderChange  time.Time `json:"lastLeaderChange"`
 }

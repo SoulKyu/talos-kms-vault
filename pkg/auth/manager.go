@@ -16,7 +16,7 @@ type Manager struct {
 	client        *vault.Client
 	config        *AuthConfig
 	logger        *slog.Logger
-	
+
 	mu            sync.RWMutex
 	cancelRenewal context.CancelFunc
 	renewalDone   chan struct{}
@@ -27,17 +27,17 @@ func NewManager(config *AuthConfig, logger *slog.Logger) (*Manager, error) {
 	if config == nil {
 		return nil, fmt.Errorf("auth config is required")
 	}
-	
+
 	if logger == nil {
 		logger = slog.Default()
 	}
-	
+
 	// Create authenticator based on config
 	authenticator, err := NewAuthenticator(config)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create authenticator: %w", err)
 	}
-	
+
 	return &Manager{
 		authenticator: authenticator,
 		config:        config,
@@ -52,20 +52,20 @@ func (m *Manager) Start(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("initial authentication failed: %w", err)
 	}
-	
+
 	m.mu.Lock()
 	m.client = client
 	m.mu.Unlock()
-	
+
 	m.logger.Info("authentication successful",
 		"method", m.authenticator.GetMethod(),
 		"ttl", m.authenticator.GetTokenTTL())
-	
+
 	// Start renewal if auto-renew is enabled
 	if m.config.AutoRenew {
 		m.startRenewal()
 	}
-	
+
 	return nil
 }
 
@@ -83,12 +83,12 @@ func (m *Manager) Stop(ctx context.Context) error {
 			}
 		}
 	}
-	
+
 	// Revoke token
 	m.mu.RLock()
 	client := m.client
 	m.mu.RUnlock()
-	
+
 	if client != nil {
 		if err := m.authenticator.Revoke(ctx, client); err != nil {
 			m.logger.Error("failed to revoke token", "error", err)
@@ -96,7 +96,7 @@ func (m *Manager) Stop(ctx context.Context) error {
 		}
 		m.logger.Info("token revoked successfully")
 	}
-	
+
 	return nil
 }
 
@@ -104,11 +104,11 @@ func (m *Manager) Stop(ctx context.Context) error {
 func (m *Manager) GetClient() (*vault.Client, error) {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
-	
+
 	if m.client == nil {
 		return nil, fmt.Errorf("not authenticated")
 	}
-	
+
 	return m.client, nil
 }
 
@@ -117,45 +117,45 @@ func (m *Manager) startRenewal() {
 	ctx, cancel := context.WithCancel(context.Background())
 	m.cancelRenewal = cancel
 	m.renewalDone = make(chan struct{})
-	
+
 	go m.renewalLoop(ctx)
 }
 
 // renewalLoop handles automatic token renewal
 func (m *Manager) renewalLoop(ctx context.Context) {
 	defer close(m.renewalDone)
-	
+
 	// Calculate initial sleep duration
 	sleepDuration := m.calculateRenewalSleep()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
 			m.logger.Info("renewal loop stopped")
 			return
-			
+
 		case <-time.After(sleepDuration):
 			// Check if renewal is needed
 			if !m.authenticator.ShouldRenew() {
 				sleepDuration = m.calculateRenewalSleep()
 				continue
 			}
-			
+
 			// Perform renewal
 			m.mu.RLock()
 			client := m.client
 			m.mu.RUnlock()
-			
+
 			if client == nil {
 				m.logger.Error("client is nil, cannot renew", "component", "auth-manager")
 				sleepDuration = 10 * time.Second
 				continue
 			}
-			
+
 			err := m.authenticator.Renew(ctx, client)
 			if err != nil {
 				m.logger.Error("token renewal failed", "error", err)
-				
+
 				// Try to re-authenticate
 				m.logger.Info("attempting re-authentication")
 				newClient, authErr := m.authenticator.Authenticate(ctx)
@@ -167,7 +167,7 @@ func (m *Manager) renewalLoop(ctx context.Context) {
 					m.mu.Lock()
 					m.client = newClient
 					m.mu.Unlock()
-					
+
 					m.logger.Info("re-authentication successful",
 						"ttl", m.authenticator.GetTokenTTL())
 					sleepDuration = m.calculateRenewalSleep()
@@ -188,7 +188,7 @@ func (m *Manager) calculateRenewalSleep() time.Duration {
 		// Non-renewable token, check every hour
 		return time.Hour
 	}
-	
+
 	// Sleep for half the TTL, but at least 10 seconds and at most 1 hour
 	sleep := ttl / 2
 	if sleep < 10*time.Second {
@@ -196,7 +196,7 @@ func (m *Manager) calculateRenewalSleep() time.Duration {
 	} else if sleep > time.Hour {
 		sleep = time.Hour
 	}
-	
+
 	return sleep
 }
 
@@ -205,11 +205,11 @@ func (m *Manager) ForceRenewal(ctx context.Context) error {
 	m.mu.RLock()
 	client := m.client
 	m.mu.RUnlock()
-	
+
 	if client == nil {
 		return fmt.Errorf("not authenticated")
 	}
-	
+
 	err := m.authenticator.Renew(ctx, client)
 	if err != nil {
 		// Try to re-authenticate
@@ -217,18 +217,18 @@ func (m *Manager) ForceRenewal(ctx context.Context) error {
 		if authErr != nil {
 			return fmt.Errorf("renewal and re-authentication failed: %w", authErr)
 		}
-		
+
 		m.mu.Lock()
 		m.client = newClient
 		m.mu.Unlock()
-		
+
 		m.logger.Info("force renewal: re-authenticated",
 			"ttl", m.authenticator.GetTokenTTL())
 	} else {
 		m.logger.Info("force renewal: token renewed",
 			"ttl", m.authenticator.GetTokenTTL())
 	}
-	
+
 	return nil
 }
 

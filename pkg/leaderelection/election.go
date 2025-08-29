@@ -20,10 +20,10 @@ type LeaderElectionCallbacks struct {
 
 // ElectionController manages the leader election process
 type ElectionController struct {
-	config      *LeaseConfig
+	config       *LeaseConfig
 	leaseManager *LeaseManager
-	callbacks   LeaderElectionCallbacks
-	logger      *slog.Logger
+	callbacks    LeaderElectionCallbacks
+	logger       *slog.Logger
 
 	// Internal state
 	mu               sync.RWMutex
@@ -31,15 +31,15 @@ type ElectionController struct {
 	isRunning        bool
 	currentLeader    string
 	lastLeaderChange time.Time
-	
+
 	// Control channels
-	stopCh   chan struct{}
+	stopCh    chan struct{}
 	stoppedCh chan struct{}
-	
+
 	// Metrics
 	leadershipChanges int64
 	acquisitionErrors int64
-	renewalErrors    int64
+	renewalErrors     int64
 }
 
 // NewElectionController creates a new leader election controller
@@ -63,17 +63,17 @@ func NewElectionController(config *LeaseConfig, callbacks LeaderElectionCallback
 func (ec *ElectionController) Start(ctx context.Context) error {
 	ec.mu.Lock()
 	defer ec.mu.Unlock()
-	
+
 	if ec.isRunning {
 		return fmt.Errorf("election controller is already running")
 	}
-	
+
 	ec.isRunning = true
-	ec.logger.Info("Starting leader election", 
+	ec.logger.Info("Starting leader election",
 		"identity", ec.config.Identity,
 		"lease", ec.config.Name,
 		"namespace", ec.config.Namespace)
-	
+
 	go ec.run(ctx)
 	return nil
 }
@@ -84,11 +84,11 @@ func (ec *ElectionController) Stop() {
 	wasRunning := ec.isRunning
 	ec.isRunning = false
 	ec.mu.Unlock()
-	
+
 	if !wasRunning {
 		return
 	}
-	
+
 	ec.logger.Info("Stopping leader election", "identity", ec.config.Identity)
 	close(ec.stopCh)
 	<-ec.stoppedCh
@@ -112,13 +112,13 @@ func (ec *ElectionController) GetCurrentLeader() string {
 func (ec *ElectionController) GetMetrics() ElectionMetrics {
 	ec.mu.RLock()
 	defer ec.mu.RUnlock()
-	
+
 	return ElectionMetrics{
 		IsLeader:          ec.isLeader,
 		CurrentLeader:     ec.currentLeader,
 		LeadershipChanges: ec.leadershipChanges,
 		AcquisitionErrors: ec.acquisitionErrors,
-		RenewalErrors:    ec.renewalErrors,
+		RenewalErrors:     ec.renewalErrors,
 		LastLeaderChange:  ec.lastLeaderChange,
 	}
 }
@@ -127,13 +127,13 @@ func (ec *ElectionController) GetMetrics() ElectionMetrics {
 func (ec *ElectionController) run(ctx context.Context) {
 	defer close(ec.stoppedCh)
 	defer ec.releaseLeadershipOnExit(ctx)
-	
+
 	ticker := time.NewTicker(ec.config.RetryPeriod)
 	defer ticker.Stop()
-	
+
 	// Try to acquire leadership immediately
 	ec.tryAcquireLease(ctx)
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -151,7 +151,7 @@ func (ec *ElectionController) run(ctx context.Context) {
 // tryAcquireLease attempts to acquire or renew the lease
 func (ec *ElectionController) tryAcquireLease(ctx context.Context) {
 	acquired, err := ec.leaseManager.AcquireLease(ctx)
-	
+
 	if err != nil {
 		ec.mu.Lock()
 		if ec.isLeader {
@@ -160,18 +160,18 @@ func (ec *ElectionController) tryAcquireLease(ctx context.Context) {
 			ec.renewalErrors++
 		}
 		ec.mu.Unlock()
-		
+
 		ec.logger.Error("Failed to acquire/renew lease",
 			"identity", ec.config.Identity,
 			"error", err)
-		
+
 		// If we were the leader but failed to renew, step down
 		if ec.isLeader {
 			ec.stepDown()
 		}
 		return
 	}
-	
+
 	// Get current lease info to check who the leader is
 	leaseInfo, err := ec.leaseManager.GetLeaseInfo(ctx)
 	if err != nil {
@@ -180,7 +180,7 @@ func (ec *ElectionController) tryAcquireLease(ctx context.Context) {
 			"error", err)
 		return
 	}
-	
+
 	ec.updateLeadershipState(acquired, leaseInfo)
 }
 
@@ -188,21 +188,21 @@ func (ec *ElectionController) tryAcquireLease(ctx context.Context) {
 func (ec *ElectionController) updateLeadershipState(acquired bool, leaseInfo *LeaseInfo) {
 	ec.mu.Lock()
 	defer ec.mu.Unlock()
-	
+
 	wasLeader := ec.isLeader
 	oldLeader := ec.currentLeader
-	
+
 	ec.isLeader = acquired
 	ec.currentLeader = leaseInfo.HolderIdentity
-	
+
 	// Check if leadership changed
 	leadershipChanged := wasLeader != ec.isLeader
 	leaderChanged := oldLeader != ec.currentLeader
-	
+
 	if leadershipChanged || leaderChanged {
 		ec.lastLeaderChange = time.Now()
 		ec.leadershipChanges++
-		
+
 		ec.logger.Info("Leadership state changed",
 			"identity", ec.config.Identity,
 			"wasLeader", wasLeader,
@@ -210,14 +210,14 @@ func (ec *ElectionController) updateLeadershipState(acquired bool, leaseInfo *Le
 			"currentLeader", ec.currentLeader,
 			"transitions", leaseInfo.LeaseTransitions)
 	}
-	
+
 	// Handle leadership transitions
 	if leadershipChanged {
 		if ec.isLeader {
 			ec.logger.Info("Became leader",
 				"identity", ec.config.Identity,
 				"transitions", leaseInfo.LeaseTransitions)
-			
+
 			// Call the callback outside of the lock
 			go func() {
 				if ec.callbacks.OnStartedLeading != nil {
@@ -228,7 +228,7 @@ func (ec *ElectionController) updateLeadershipState(acquired bool, leaseInfo *Le
 			ec.logger.Info("Lost leadership",
 				"identity", ec.config.Identity,
 				"currentLeader", ec.currentLeader)
-			
+
 			// Call the callback outside of the lock
 			go func() {
 				if ec.callbacks.OnStoppedLeading != nil {
@@ -237,7 +237,7 @@ func (ec *ElectionController) updateLeadershipState(acquired bool, leaseInfo *Le
 			}()
 		}
 	}
-	
+
 	// Handle leader change notifications
 	if leaderChanged && ec.callbacks.OnNewLeader != nil {
 		go func() {
@@ -252,11 +252,11 @@ func (ec *ElectionController) stepDown() {
 	wasLeader := ec.isLeader
 	ec.isLeader = false
 	ec.mu.Unlock()
-	
+
 	if wasLeader {
 		ec.logger.Warn("Stepping down from leadership due to lease renewal failure",
 			"identity", ec.config.Identity)
-		
+
 		if ec.callbacks.OnStoppedLeading != nil {
 			go ec.callbacks.OnStoppedLeading()
 		}
@@ -269,20 +269,20 @@ func (ec *ElectionController) releaseLeadershipOnExit(ctx context.Context) {
 	wasLeader := ec.isLeader
 	ec.isLeader = false
 	ec.mu.Unlock()
-	
+
 	if wasLeader {
 		ec.logger.Info("Releasing leadership on exit", "identity", ec.config.Identity)
-		
+
 		// Create a timeout context for lease release
 		releaseCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		if err := ec.leaseManager.ReleaseLease(releaseCtx); err != nil {
 			ec.logger.Error("Failed to release lease on exit",
 				"identity", ec.config.Identity,
 				"error", err)
 		}
-		
+
 		if ec.callbacks.OnStoppedLeading != nil {
 			ec.callbacks.OnStoppedLeading()
 		}

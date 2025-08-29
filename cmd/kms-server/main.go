@@ -6,7 +6,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"time"
 	"github.com/lightdiscord/talos-kms-vault/pkg/auth"
 	"github.com/lightdiscord/talos-kms-vault/pkg/leaderelection"
 	"github.com/lightdiscord/talos-kms-vault/pkg/server"
@@ -19,22 +18,23 @@ import (
 	"net"
 	"os"
 	"os/signal"
+	"time"
 )
 
 var kmsFlags struct {
-	apiEndpoint        string
-	mountPath          string
-	disableValidation  bool
-	allowUUIDVersions  string
-	disableEntropy     bool
-	enableTLS          bool
-	tlsCertFile        string
-	tlsKeyFile         string
-	
+	apiEndpoint       string
+	mountPath         string
+	disableValidation bool
+	allowUUIDVersions string
+	disableEntropy    bool
+	enableTLS         bool
+	tlsCertFile       string
+	tlsKeyFile        string
+
 	// Leader election flags
-	enableLeaderElection       bool
-	leaderElectionNamespace    string
-	leaderElectionName         string
+	enableLeaderElection        bool
+	leaderElectionNamespace     string
+	leaderElectionName          string
 	leaderElectionLeaseDuration time.Duration
 	leaderElectionRenewDeadline time.Duration
 	leaderElectionRetryPeriod   time.Duration
@@ -49,7 +49,7 @@ func main() {
 	flag.BoolVar(&kmsFlags.enableTLS, "enable-tls", false, "Enable TLS/HTTPS for gRPC server")
 	flag.StringVar(&kmsFlags.tlsCertFile, "tls-cert", "server.crt", "Path to TLS certificate file")
 	flag.StringVar(&kmsFlags.tlsKeyFile, "tls-key", "server.key", "Path to TLS private key file")
-	
+
 	// Leader election flags
 	flag.BoolVar(&kmsFlags.enableLeaderElection, "enable-leader-election", false, "Enable leader election for multi-instance deployments")
 	flag.StringVar(&kmsFlags.leaderElectionNamespace, "leader-election-namespace", leaderelection.GetNamespaceFromEnv(), "Kubernetes namespace for leader election")
@@ -72,70 +72,70 @@ func main() {
 func run(ctx context.Context, logger *slog.Logger) error {
 	// Create authentication configuration from environment
 	authConfig := auth.NewAuthConfigFromEnvironment()
-	
+
 	// Validate configuration
 	if err := auth.ValidateConfig(authConfig); err != nil {
 		return err
 	}
-	
+
 	logger.Info("Initializing authentication", "method", authConfig.Method)
-	
+
 	// Create authentication manager
 	authManager, err := auth.NewManager(authConfig, logger)
 	if err != nil {
 		return err
 	}
-	
+
 	// Start authentication and token renewal
 	if err := authManager.Start(ctx); err != nil {
 		return err
 	}
-	
+
 	// Ensure we clean up authentication on exit
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		
+
 		if err := authManager.Stop(shutdownCtx); err != nil {
 			logger.Error("Failed to stop auth manager", "error", err)
 		}
 	}()
-	
+
 	// Get authenticated Vault client
 	client, err := authManager.GetClient()
 	if err != nil {
 		return err
 	}
-	
+
 	srv := server.NewServer(client, logger, kmsFlags.mountPath)
 
 	// Create validation middleware based on flags
 	validationConfig := createValidationConfig()
 	validationMiddleware := validation.NewValidationMiddlewareFromConfig(validationConfig, logger)
-	
+
 	if !validationConfig.Enabled {
 		logger.Warn("UUID validation is DISABLED - this is not recommended for production")
 	}
-	
+
 	// Determine which server to use (leader-aware or regular)
 	var kmsServer kms.KMSServiceServer
 	var leaderAwareServer *server.LeaderAwareServer
-	
+
 	if kmsFlags.enableLeaderElection {
 		// Create leader election configuration
 		leaseConfig := createLeaderElectionConfig(logger)
-		
+
 		// Create election controller with callbacks
 		callbackBuilder := leaderelection.NewCallbackBuilder(logger)
-		electionController, err := leaderelection.NewElectionController(leaseConfig, 
+		electionController, err := leaderelection.NewElectionController(leaseConfig,
 			leaderelection.LeaderElectionCallbacks{}, logger)
 		if err != nil {
 			return fmt.Errorf("failed to create election controller: %w", err)
 		}
-		
+
 		// Create leader-aware server
 		leaderAwareServer = server.NewLeaderAwareServer(srv, electionController, logger)
-		
+
 		// Set up callbacks
 		callbacks := callbackBuilder.BuildGracefulShutdownCallbacks(
 			leaderAwareServer.OnBecomeLeader,
@@ -143,34 +143,34 @@ func run(ctx context.Context, logger *slog.Logger) error {
 			5*time.Second,
 		)
 		callbacks.OnNewLeader = leaderAwareServer.OnLeaderChange
-		
+
 		// Update election controller with callbacks
 		electionController, err = leaderelection.NewElectionController(leaseConfig, callbacks, logger)
 		if err != nil {
 			return fmt.Errorf("failed to create election controller with callbacks: %w", err)
 		}
-		
+
 		// Start leader election
 		if err := electionController.Start(ctx); err != nil {
 			return fmt.Errorf("failed to start leader election: %w", err)
 		}
-		
+
 		defer electionController.Stop()
-		
+
 		kmsServer = leaderAwareServer
 		logger.Info("Leader election enabled", "identity", leaseConfig.Identity)
 	} else {
 		kmsServer = srv
 		logger.Info("Running in single-instance mode (no leader election)")
 	}
-	
+
 	// Create gRPC server with validation middleware
 	var grpcOptions []grpc.ServerOption
 	if validationMiddleware != nil {
-		grpcOptions = append(grpcOptions, 
+		grpcOptions = append(grpcOptions,
 			grpc.UnaryInterceptor(validationMiddleware.UnaryServerInterceptor()))
 	}
-	
+
 	// Add TLS credentials if enabled
 	if kmsFlags.enableTLS {
 		cert, err := tls.LoadX509KeyPair(kmsFlags.tlsCertFile, kmsFlags.tlsKeyFile)
@@ -178,13 +178,13 @@ func run(ctx context.Context, logger *slog.Logger) error {
 			logger.Error("Failed to load TLS certificate", "error", err)
 			return err
 		}
-		
+
 		creds := credentials.NewServerTLSFromCert(&cert)
 		grpcOptions = append(grpcOptions, grpc.Creds(creds))
-		
+
 		logger.Info("TLS enabled", "cert", kmsFlags.tlsCertFile, "key", kmsFlags.tlsKeyFile)
 	}
-	
+
 	grpcSrv := grpc.NewServer(grpcOptions...)
 
 	kms.RegisterKMSServiceServer(grpcSrv, kmsServer)
@@ -198,10 +198,10 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	if kmsFlags.enableTLS {
 		protocol = "HTTPS"
 	}
-	
-	logger.Info("Starting server", 
+
+	logger.Info("Starting server",
 		"protocol", protocol,
-		"endpoint", kmsFlags.apiEndpoint, 
+		"endpoint", kmsFlags.apiEndpoint,
 		"mount-path", kmsFlags.mountPath)
 
 	eg, ctx := errgroup.WithContext(ctx)
@@ -228,13 +228,13 @@ func run(ctx context.Context, logger *slog.Logger) error {
 // createValidationConfig creates validation config from command line flags and environment
 func createValidationConfig() *validation.ValidationConfig {
 	config := validation.DefaultValidationConfig()
-	
+
 	// Override with flags
 	if kmsFlags.disableValidation {
 		config.Enabled = false
 		return config
 	}
-	
+
 	// Handle UUID version requirements
 	switch kmsFlags.allowUUIDVersions {
 	case "v4":
@@ -245,19 +245,19 @@ func createValidationConfig() *validation.ValidationConfig {
 		// Default to v4 for security
 		config.RequireUUIDv4 = true
 	}
-	
+
 	// Entropy checking
 	config.CheckEntropy = !kmsFlags.disableEntropy
-	
+
 	// Environment variable overrides
 	if disableValidation := os.Getenv("KMS_DISABLE_VALIDATION"); disableValidation == "true" {
 		config.Enabled = false
 	}
-	
+
 	if disableEntropy := os.Getenv("KMS_DISABLE_ENTROPY_CHECK"); disableEntropy == "true" {
 		config.CheckEntropy = false
 	}
-	
+
 	if uuidVersions := os.Getenv("KMS_ALLOW_UUID_VERSIONS"); uuidVersions != "" {
 		switch uuidVersions {
 		case "v4":
@@ -266,24 +266,24 @@ func createValidationConfig() *validation.ValidationConfig {
 			config.RequireUUIDv4 = false
 		}
 	}
-	
+
 	return config
 }
 
 // createLeaderElectionConfig creates leader election config from command line flags
 func createLeaderElectionConfig(logger *slog.Logger) *leaderelection.LeaseConfig {
 	config := leaderelection.DefaultLeaseConfig()
-	
+
 	// Use command line flags
 	config.Name = kmsFlags.leaderElectionName
 	config.Namespace = kmsFlags.leaderElectionNamespace
 	config.LeaseDuration = kmsFlags.leaderElectionLeaseDuration
 	config.RenewDeadline = kmsFlags.leaderElectionRenewDeadline
 	config.RetryPeriod = kmsFlags.leaderElectionRetryPeriod
-	
+
 	// Set identity from environment or defaults
 	config.Identity = leaderelection.DefaultIdentity()
-	
+
 	logger.Info("Leader election configuration",
 		"name", config.Name,
 		"namespace", config.Namespace,
@@ -291,6 +291,6 @@ func createLeaderElectionConfig(logger *slog.Logger) *leaderelection.LeaseConfig
 		"leaseDuration", config.LeaseDuration,
 		"renewDeadline", config.RenewDeadline,
 		"retryPeriod", config.RetryPeriod)
-	
+
 	return config
 }

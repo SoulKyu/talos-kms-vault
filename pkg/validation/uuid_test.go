@@ -116,7 +116,7 @@ func TestUUIDValidator_ValidateNodeUUID(t *testing.T) {
 				t.Errorf("ValidateNodeUUID() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr && tt.errType != nil {
 				if !strings.Contains(err.Error(), tt.errType.Error()) {
 					t.Errorf("ValidateNodeUUID() error = %v, want error containing %v", err, tt.errType)
@@ -279,10 +279,10 @@ func TestValidateAndNormalize(t *testing.T) {
 	validator.CheckEntropy = false // Disable for testing
 
 	tests := []struct {
-		name     string
-		uuid     string
-		want     string
-		wantErr  bool
+		name    string
+		uuid    string
+		want    string
+		wantErr bool
 	}{
 		{
 			name:    "uppercase UUID with hyphens",
@@ -326,27 +326,27 @@ func TestValidateAndNormalize(t *testing.T) {
 
 func TestGenerateSecureUUIDv4(t *testing.T) {
 	validator := NewUUIDValidator()
-	
+
 	// Generate multiple UUIDs to test uniqueness and format
 	uuids := make(map[string]bool)
-	
+
 	for i := 0; i < 10; i++ {
 		uuid, err := GenerateSecureUUIDv4()
 		if err != nil {
 			t.Fatalf("GenerateSecureUUIDv4() error = %v", err)
 		}
-		
+
 		// Check if UUID is unique
 		if uuids[uuid] {
 			t.Errorf("GenerateSecureUUIDv4() generated duplicate UUID: %s", uuid)
 		}
 		uuids[uuid] = true
-		
+
 		// Validate the generated UUID
 		if err := validator.ValidateNodeUUID(uuid); err != nil {
 			t.Errorf("Generated UUID %s failed validation: %v", uuid, err)
 		}
-		
+
 		// Check UUID v4 format specifically
 		if !validator.isUUIDv4(uuid) {
 			t.Errorf("Generated UUID %s is not valid UUID v4 format", uuid)
@@ -356,11 +356,11 @@ func TestGenerateSecureUUIDv4(t *testing.T) {
 
 func TestUUIDValidator_Configuration(t *testing.T) {
 	tests := []struct {
-		name       string
-		config     *UUIDValidator
-		uuid       string
-		wantErr    bool
-		errSubstr  string
+		name      string
+		config    *UUIDValidator
+		uuid      string
+		wantErr   bool
+		errSubstr string
 	}{
 		{
 			name: "strict v4 validation",
@@ -370,8 +370,8 @@ func TestUUIDValidator_Configuration(t *testing.T) {
 				AllowHyphens:    true,
 				MaxLength:       36,
 			},
-			uuid:    "550e8400-e29b-11d4-a716-446655440000", // UUID v1
-			wantErr: true,
+			uuid:      "550e8400-e29b-11d4-a716-446655440000", // UUID v1
+			wantErr:   true,
 			errSubstr: "version not supported",
 		},
 		{
@@ -393,8 +393,8 @@ func TestUUIDValidator_Configuration(t *testing.T) {
 				AllowHyphens:    false,
 				MaxLength:       32,
 			},
-			uuid:    "550e8400-e29b-41d4-a716-446655440000",
-			wantErr: true,
+			uuid:      "550e8400-e29b-41d4-a716-446655440000",
+			wantErr:   true,
 			errSubstr: "too long", // Length check happens first
 		},
 		{
@@ -405,8 +405,8 @@ func TestUUIDValidator_Configuration(t *testing.T) {
 				AllowHyphens:    true,
 				MaxLength:       20,
 			},
-			uuid:    "550e8400-e29b-41d4-a716-446655440000",
-			wantErr: true,
+			uuid:      "550e8400-e29b-41d4-a716-446655440000",
+			wantErr:   true,
 			errSubstr: "too long",
 		},
 	}
@@ -418,7 +418,7 @@ func TestUUIDValidator_Configuration(t *testing.T) {
 				t.Errorf("ValidateNodeUUID() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr && tt.errSubstr != "" && !strings.Contains(err.Error(), tt.errSubstr) {
 				t.Errorf("ValidateNodeUUID() error = %v, want substring %v", err, tt.errSubstr)
 			}
@@ -430,7 +430,7 @@ func TestUUIDValidator_Configuration(t *testing.T) {
 func BenchmarkValidateNodeUUID(b *testing.B) {
 	validator := NewUUIDValidator()
 	uuid := "550e8400-e29b-41d4-a716-446655440000"
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = validator.ValidateNodeUUID(uuid)
@@ -439,7 +439,7 @@ func BenchmarkValidateNodeUUID(b *testing.B) {
 
 func BenchmarkSanitizeForLogging(b *testing.B) {
 	uuid := "550e8400-e29b-41d4-a716-446655440000"
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = SanitizeForLogging(uuid)

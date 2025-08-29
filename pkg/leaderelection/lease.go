@@ -32,7 +32,7 @@ func DefaultLeaseConfig() *LeaseConfig {
 	return &LeaseConfig{
 		Name:          "talos-kms-leader",
 		Namespace:     "default",
-		Identity:      "",  // Must be set by caller
+		Identity:      "", // Must be set by caller
 		LeaseDuration: 15 * time.Second,
 		RenewDeadline: 10 * time.Second,
 		RetryPeriod:   2 * time.Second,
@@ -89,11 +89,11 @@ func NewLeaseManagerWithConfig(config *LeaseConfig, restConfig *rest.Config) (*L
 // AcquireLease attempts to acquire or renew the leadership lease
 func (lm *LeaseManager) AcquireLease(ctx context.Context) (bool, error) {
 	now := metav1.NewMicroTime(time.Now())
-	
+
 	// Try to get existing lease
 	lease, err := lm.clientset.CoordinationV1().Leases(lm.config.Namespace).Get(
 		ctx, lm.config.Name, metav1.GetOptions{})
-	
+
 	if err != nil {
 		// Lease doesn't exist, try to create it
 		return lm.createLease(ctx, now)
@@ -117,15 +117,15 @@ func (lm *LeaseManager) createLease(ctx context.Context, now metav1.MicroTime) (
 		Spec: coordinationv1.LeaseSpec{
 			HolderIdentity:       &lm.config.Identity,
 			LeaseDurationSeconds: int32Ptr(int32(lm.config.LeaseDuration.Seconds())),
-			AcquireTime:         &now,
-			RenewTime:           &now,
-			LeaseTransitions:    int32Ptr(0),
+			AcquireTime:          &now,
+			RenewTime:            &now,
+			LeaseTransitions:     int32Ptr(0),
 		},
 	}
 
 	_, err := lm.clientset.CoordinationV1().Leases(lm.config.Namespace).Create(
 		ctx, lease, metav1.CreateOptions{})
-	
+
 	if err != nil {
 		return false, fmt.Errorf("failed to create lease: %w", err)
 	}
@@ -136,11 +136,11 @@ func (lm *LeaseManager) createLease(ctx context.Context, now metav1.MicroTime) (
 // updateLease updates an existing lease with this instance as the leader
 func (lm *LeaseManager) updateLease(ctx context.Context, lease *coordinationv1.Lease, now metav1.MicroTime) (bool, error) {
 	wasLeader := lease.Spec.HolderIdentity != nil && *lease.Spec.HolderIdentity == lm.config.Identity
-	
+
 	// Update lease with our identity
 	lease.Spec.HolderIdentity = &lm.config.Identity
 	lease.Spec.RenewTime = &now
-	
+
 	if !wasLeader {
 		lease.Spec.AcquireTime = &now
 		if lease.Spec.LeaseTransitions != nil {
@@ -152,7 +152,7 @@ func (lm *LeaseManager) updateLease(ctx context.Context, lease *coordinationv1.L
 
 	_, err := lm.clientset.CoordinationV1().Leases(lm.config.Namespace).Update(
 		ctx, lease, metav1.UpdateOptions{})
-	
+
 	if err != nil {
 		return false, fmt.Errorf("failed to update lease: %w", err)
 	}
@@ -179,7 +179,7 @@ func (lm *LeaseManager) canAcquireLease(lease *coordinationv1.Lease, now metav1.
 
 	leaseDuration := time.Duration(*lease.Spec.LeaseDurationSeconds) * time.Second
 	expiry := lease.Spec.RenewTime.Add(leaseDuration)
-	
+
 	return now.Time.After(expiry)
 }
 
@@ -187,7 +187,7 @@ func (lm *LeaseManager) canAcquireLease(lease *coordinationv1.Lease, now metav1.
 func (lm *LeaseManager) ReleaseLease(ctx context.Context) error {
 	lease, err := lm.clientset.CoordinationV1().Leases(lm.config.Namespace).Get(
 		ctx, lm.config.Name, metav1.GetOptions{})
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to get lease for release: %w", err)
 	}
@@ -204,7 +204,7 @@ func (lm *LeaseManager) ReleaseLease(ctx context.Context) error {
 
 	_, err = lm.clientset.CoordinationV1().Leases(lm.config.Namespace).Update(
 		ctx, lease, metav1.UpdateOptions{})
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to release lease: %w", err)
 	}
@@ -216,7 +216,7 @@ func (lm *LeaseManager) ReleaseLease(ctx context.Context) error {
 func (lm *LeaseManager) GetLeaseInfo(ctx context.Context) (*LeaseInfo, error) {
 	lease, err := lm.clientset.CoordinationV1().Leases(lm.config.Namespace).Get(
 		ctx, lm.config.Name, metav1.GetOptions{})
-	
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to get lease info: %w", err)
 	}

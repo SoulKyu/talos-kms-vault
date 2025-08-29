@@ -50,17 +50,17 @@ func TestDetectAuthMethod(t *testing.T) {
 			expected: "",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear environment
 			os.Clearenv()
-			
+
 			// Set test environment variables
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
 			}
-			
+
 			// Test detection
 			result := detectAuthMethod()
 			if result != tt.expected {
@@ -108,10 +108,10 @@ func TestNewAuthConfigFromEnvironment(t *testing.T) {
 		{
 			name: "kubernetes config with explicit method",
 			envVars: map[string]string{
-				"VAULT_ADDR":             "https://vault.example.com",
-				"VAULT_AUTH_METHOD":      "kubernetes", // Explicit method to bypass file check
-				"VAULT_K8S_ROLE":         "my-role",
-				"VAULT_K8S_MOUNT_PATH":   "k8s-auth",
+				"VAULT_ADDR":           "https://vault.example.com",
+				"VAULT_AUTH_METHOD":    "kubernetes", // Explicit method to bypass file check
+				"VAULT_K8S_ROLE":       "my-role",
+				"VAULT_K8S_MOUNT_PATH": "k8s-auth",
 			},
 			check: func(c *AuthConfig) bool {
 				return c.Method == AuthMethodKubernetes &&
@@ -131,20 +131,20 @@ func TestNewAuthConfigFromEnvironment(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Clear environment
 			os.Clearenv()
-			
+
 			// Set test environment variables
 			for k, v := range tt.envVars {
 				os.Setenv(k, v)
 			}
-			
+
 			// Create config from environment
 			config := NewAuthConfigFromEnvironment()
-			
+
 			// Check result
 			if !tt.check(config) {
 				t.Errorf("NewAuthConfigFromEnvironment() failed validation")
@@ -231,7 +231,7 @@ func TestValidateConfig(t *testing.T) {
 			wantErr: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := ValidateConfig(tt.config)
@@ -272,15 +272,15 @@ func TestBaseAuthenticatorShouldRenew(t *testing.T) {
 			want:        false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			b := &BaseAuthenticator{
-				TokenTTL:     tt.ttl,
-				LastRenewal:  time.Now().Add(-tt.elapsed),
-				RenewBuffer:  tt.renewBuffer,
+				TokenTTL:    tt.ttl,
+				LastRenewal: time.Now().Add(-tt.elapsed),
+				RenewBuffer: tt.renewBuffer,
 			}
-			
+
 			if got := b.ShouldRenew(); got != tt.want {
 				t.Errorf("ShouldRenew() = %v, want %v", got, tt.want)
 			}
@@ -295,13 +295,13 @@ func TestAuthError(t *testing.T) {
 		ErrAuthenticationFailed,
 		"test message",
 	)
-	
+
 	// Test Error() method
 	errStr := err.Error()
 	if errStr == "" {
 		t.Error("AuthError.Error() returned empty string")
 	}
-	
+
 	// Test Unwrap()
 	if err.Unwrap() != ErrAuthenticationFailed {
 		t.Error("AuthError.Unwrap() did not return the wrapped error")
@@ -335,13 +335,13 @@ func TestManagerCalculateRenewalSleep(t *testing.T) {
 			expected: time.Hour,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := &Manager{
 				authenticator: &mockAuthenticator{ttl: tt.ttl},
 			}
-			
+
 			result := m.calculateRenewalSleep()
 			if result != tt.expected {
 				t.Errorf("calculateRenewalSleep() = %v, want %v", result, tt.expected)

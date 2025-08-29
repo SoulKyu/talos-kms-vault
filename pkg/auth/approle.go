@@ -26,12 +26,12 @@ func NewAppRoleAuth(config *AppRoleConfig, vaultAddr string) (*AppRoleAuthentica
 	if config == nil {
 		config = &AppRoleConfig{}
 	}
-	
+
 	// Set defaults
 	if config.MountPath == "" {
 		config.MountPath = defaultAppRoleMountPath
 	}
-	
+
 	// Get RoleID
 	if config.RoleID == "" {
 		config.RoleID = os.Getenv("VAULT_ROLE_ID")
@@ -39,13 +39,13 @@ func NewAppRoleAuth(config *AppRoleConfig, vaultAddr string) (*AppRoleAuthentica
 			return nil, NewAuthError(AuthMethodAppRole, "new", ErrMissingConfiguration, "role_id is required")
 		}
 	}
-	
+
 	// Get SecretID
 	if config.SecretID == "" {
 		config.SecretID = os.Getenv("VAULT_SECRET_ID")
 		// SecretID might be optional for some AppRole configurations
 	}
-	
+
 	return &AppRoleAuthenticator{
 		BaseAuthenticator: BaseAuthenticator{
 			Method:      AuthMethodAppRole,
@@ -68,37 +68,37 @@ func (a *AppRoleAuthenticator) Authenticate(ctx context.Context) (*vault.Client,
 	if err != nil {
 		return nil, NewAuthError(AuthMethodAppRole, "authenticate", err, "failed to create vault client")
 	}
-	
+
 	// Prepare login request
 	loginReq := schema.AppRoleLoginRequest{
 		RoleId: a.roleID,
 	}
-	
+
 	// Add SecretID if provided
 	if a.secretID != "" {
 		loginReq.SecretId = a.secretID
 	}
-	
+
 	// Perform AppRole login
 	resp, err := client.Auth.AppRoleLogin(ctx, loginReq, vault.WithMountPath(a.mountPath))
 	if err != nil {
 		return nil, NewAuthError(AuthMethodAppRole, "authenticate", err, "approle login failed")
 	}
-	
+
 	// Check response
 	if resp.Auth == nil || resp.Auth.ClientToken == "" {
 		return nil, NewAuthError(AuthMethodAppRole, "authenticate", ErrAuthenticationFailed, "no token received from Vault")
 	}
-	
+
 	// Set the token
 	if err := client.SetToken(resp.Auth.ClientToken); err != nil {
 		return nil, NewAuthError(AuthMethodAppRole, "authenticate", err, "failed to set token")
 	}
-	
+
 	// Store TTL and metadata
 	a.TokenTTL = time.Duration(resp.Auth.LeaseDuration) * time.Second
 	a.LastRenewal = time.Now()
-	
+
 	// Handle wrapped SecretID response if applicable
 	if resp.Auth.Metadata != nil {
 		if wrappedSecretID, ok := resp.Auth.Metadata["wrapped_secret_id"]; ok && wrappedSecretID != "" {
@@ -106,7 +106,7 @@ func (a *AppRoleAuthenticator) Authenticate(ctx context.Context) (*vault.Client,
 			a.secretID = wrappedSecretID
 		}
 	}
-	
+
 	return client, nil
 }
 
@@ -121,16 +121,16 @@ func (a *AppRoleAuthenticator) Renew(ctx context.Context, client *vault.Client) 
 			loginReq := schema.AppRoleLoginRequest{
 				RoleId: a.roleID,
 			}
-			
+
 			if a.secretID != "" {
 				loginReq.SecretId = a.secretID
 			}
-			
+
 			resp, err := client.Auth.AppRoleLogin(ctx, loginReq, vault.WithMountPath(a.mountPath))
 			if err != nil {
 				return NewAuthError(AuthMethodAppRole, "renew", err, "re-authentication failed")
 			}
-			
+
 			if resp.Auth != nil && resp.Auth.ClientToken != "" {
 				if err := client.SetToken(resp.Auth.ClientToken); err != nil {
 					return NewAuthError(AuthMethodAppRole, "renew", err, "failed to set new token")
@@ -140,16 +140,16 @@ func (a *AppRoleAuthenticator) Renew(ctx context.Context, client *vault.Client) 
 				return nil
 			}
 		}
-		
+
 		return NewAuthError(AuthMethodAppRole, "renew", err, "token renewal failed")
 	}
-	
+
 	// Update TTL from renewal response
 	if renewResp.Auth != nil {
 		a.TokenTTL = time.Duration(renewResp.Auth.LeaseDuration) * time.Second
 		a.LastRenewal = time.Now()
 	}
-	
+
 	return nil
 }
 
@@ -174,14 +174,14 @@ func (a *AppRoleAuthenticator) RotateSecretID(ctx context.Context, client *vault
 	if err != nil {
 		return "", NewAuthError(AuthMethodAppRole, "rotate_secret_id", err, "failed to generate new secret_id")
 	}
-	
+
 	if resp.Data.SecretId == "" {
 		return "", NewAuthError(AuthMethodAppRole, "rotate_secret_id", ErrAuthenticationFailed, "no secret_id in response")
 	}
-	
+
 	// Update internal state
 	a.secretID = resp.Data.SecretId
-	
+
 	return resp.Data.SecretId, nil
 }
 
