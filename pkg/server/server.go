@@ -3,13 +3,15 @@ package server
 import (
 	"context"
 	"encoding/base64"
+	"log/slog"
+	"strings"
+
 	"github.com/hashicorp/vault-client-go"
 	"github.com/hashicorp/vault-client-go/schema"
+	"github.com/lightdiscord/talos-kms-vault/pkg/validation"
 	"github.com/siderolabs/kms-client/api/kms"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
-	"log/slog"
-	"strings"
 )
 
 type Server struct {
@@ -30,13 +32,16 @@ func wrapError(err error) error {
 }
 
 func (s Server) Seal(ctx context.Context, request *kms.Request) (*kms.Response, error) {
-	s.logger.InfoContext(ctx, "Sealing data", "node", request.NodeUuid)
+	// Log with sanitized UUID
+	s.logger.InfoContext(ctx, "Sealing data", "node", validation.SanitizeForLogging(request.NodeUuid))
 
 	req := schema.TransitEncryptRequest{Plaintext: base64.StdEncoding.EncodeToString(request.Data)}
 	res, err := s.client.Secrets.TransitEncrypt(ctx, request.NodeUuid, req, s.vaultRequestOption)
 
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Error while sealing data", "node", request.NodeUuid, "error", err)
+		s.logger.ErrorContext(ctx, "Error while sealing data",
+			"node", validation.SanitizeForLogging(request.NodeUuid),
+			"error", err)
 		return nil, wrapError(err)
 	}
 
@@ -46,13 +51,16 @@ func (s Server) Seal(ctx context.Context, request *kms.Request) (*kms.Response, 
 }
 
 func (s Server) Unseal(ctx context.Context, request *kms.Request) (*kms.Response, error) {
-	s.logger.Info("Unsealing data", "node", request.NodeUuid)
+	// Log with sanitized UUID
+	s.logger.InfoContext(ctx, "Unsealing data", "node", validation.SanitizeForLogging(request.NodeUuid))
 
 	req := schema.TransitDecryptRequest{Ciphertext: string(request.Data)}
 	res, err := s.client.Secrets.TransitDecrypt(ctx, request.NodeUuid, req, s.vaultRequestOption)
 
 	if err != nil {
-		s.logger.ErrorContext(ctx, "Error while unsealing data", "node", request.NodeUuid, "error", err)
+		s.logger.ErrorContext(ctx, "Error while unsealing data",
+			"node", validation.SanitizeForLogging(request.NodeUuid),
+			"error", err)
 		return nil, wrapError(err)
 	}
 
