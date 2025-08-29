@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"flag"
-	"github.com/hashicorp/vault-client-go"
+	"time"
+	"github.com/lightdiscord/talos-kms-vault/pkg/auth"
 	"github.com/lightdiscord/talos-kms-vault/pkg/server"
 	"github.com/siderolabs/kms-client/api/kms"
 	"golang.org/x/sync/errgroup"
@@ -36,12 +37,43 @@ func main() {
 }
 
 func run(ctx context.Context, logger *slog.Logger) error {
-
-	client, err := vault.New(vault.WithEnvironment())
+	// Create authentication configuration from environment
+	authConfig := auth.NewAuthConfigFromEnvironment()
+	
+	// Validate configuration
+	if err := auth.ValidateConfig(authConfig); err != nil {
+		return err
+	}
+	
+	logger.Info("Initializing authentication", "method", authConfig.Method)
+	
+	// Create authentication manager
+	authManager, err := auth.NewManager(authConfig, logger)
 	if err != nil {
 		return err
 	}
-
+	
+	// Start authentication and token renewal
+	if err := authManager.Start(ctx); err != nil {
+		return err
+	}
+	
+	// Ensure we clean up authentication on exit
+	defer func() {
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		
+		if err := authManager.Stop(shutdownCtx); err != nil {
+			logger.Error("Failed to stop auth manager", "error", err)
+		}
+	}()
+	
+	// Get authenticated Vault client
+	client, err := authManager.GetClient()
+	if err != nil {
+		return err
+	}
+	
 	srv := server.NewServer(client, logger, kmsFlags.mountPath)
 
 	grpcSrv := grpc.NewServer()
