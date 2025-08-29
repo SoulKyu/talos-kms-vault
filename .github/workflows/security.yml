@@ -96,8 +96,12 @@ jobs:
     
     - name: Run Kubesec scan
       run: |
-        docker run --rm -v $(pwd)/generated-manifests:/manifests \
-          kubesec/kubesec:latest scan /manifests/talos-kms-vault/templates/*.yaml
+        for file in generated-manifests/talos-kms-vault/templates/*.yaml; do
+          if [ -f "$file" ]; then
+            docker run --rm -v $(pwd)/generated-manifests:/manifests \
+              kubesec/kubesec:latest scan "/manifests/talos-kms-vault/templates/$(basename $file)"
+          fi
+        done
     
     - name: Run Polaris scan
       run: |
