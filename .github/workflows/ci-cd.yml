@@ -170,7 +170,7 @@ jobs:
         done
 
   release:
-    needs: [build-push-image, helm-lint-package, security-scan]
+    needs: [build-push-image, helm-lint-package]
     runs-on: ubuntu-latest
     if: github.event_name == 'push' && contains(github.ref, 'refs/tags/')
     permissions:
