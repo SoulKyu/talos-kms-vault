@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "talos-kms-vault.fullname" . }}
+  labels:
+    {{- include "talos-kms-vault.labels" . | nindent 4 }}
+data:
+  # Application configuration
+  kms-api-endpoint: {{ .Values.config.apiEndpoint | quote }}
+  mount-path: {{ .Values.config.mountPath | quote }}
+  
+  # Validation configuration
+  validation-enabled: {{ .Values.config.validation.enabled | quote }}
+  allow-uuid-versions: {{ .Values.config.validation.allowUUIDVersions | quote }}
+  disable-entropy-check: {{ .Values.config.validation.disableEntropyCheck | quote }}
+  
+  # TLS configuration
+  tls-enabled: {{ .Values.config.tls.enabled | quote }}
+  
+  # Leader election configuration
+  leader-election-enabled: {{ .Values.config.leaderElection.enabled | quote }}
+  leader-election-namespace: {{ .Values.config.leaderElection.namespace | default .Release.Namespace | quote }}
+  leader-election-name: {{ .Values.config.leaderElection.name | quote }}
+  leader-election-lease-duration: {{ .Values.config.leaderElection.leaseDuration | quote }}
+  leader-election-renew-deadline: {{ .Values.config.leaderElection.renewDeadline | quote }}
+  leader-election-retry-period: {{ .Values.config.leaderElection.retryPeriod | quote }}

@@ -21,7 +21,7 @@ func NewTokenAuth(config *TokenConfig, vaultAddr string) (*TokenAuthenticator, e
 	if config == nil {
 		return nil, NewAuthError(AuthMethodToken, "new", ErrMissingConfiguration, "token configuration is required")
 	}
-	
+
 	token := config.Token
 	if token == "" {
 		// Try to get token from environment
@@ -30,7 +30,7 @@ func NewTokenAuth(config *TokenConfig, vaultAddr string) (*TokenAuthenticator, e
 			return nil, NewAuthError(AuthMethodToken, "new", ErrMissingConfiguration, "token is required")
 		}
 	}
-	
+
 	return &TokenAuthenticator{
 		BaseAuthenticator: BaseAuthenticator{
 			Method:      AuthMethodToken,
@@ -51,24 +51,24 @@ func (t *TokenAuthenticator) Authenticate(ctx context.Context) (*vault.Client, e
 	if err != nil {
 		return nil, NewAuthError(AuthMethodToken, "authenticate", err, "failed to create vault client")
 	}
-	
+
 	// Set the token
 	if err := client.SetToken(t.token); err != nil {
 		return nil, NewAuthError(AuthMethodToken, "authenticate", err, "failed to set token")
 	}
-	
+
 	// Validate token by looking it up
 	resp, err := client.Auth.TokenLookUpSelf(ctx)
 	if err != nil {
 		return nil, NewAuthError(AuthMethodToken, "authenticate", err, "token validation failed")
 	}
-	
+
 	// Extract TTL from response
 	if ttl, ok := resp.Data["ttl"].(float64); ok {
 		t.TokenTTL = time.Duration(ttl) * time.Second
 		t.LastRenewal = time.Now()
 	}
-	
+
 	return client, nil
 }
 
@@ -79,24 +79,24 @@ func (t *TokenAuthenticator) Renew(ctx context.Context, client *vault.Client) er
 	if err != nil {
 		return NewAuthError(AuthMethodToken, "renew", err, "failed to lookup token")
 	}
-	
+
 	renewable, ok := resp.Data["renewable"].(bool)
 	if !ok || !renewable {
 		return NewAuthError(AuthMethodToken, "renew", ErrTokenRenewalFailed, "token is not renewable")
 	}
-	
+
 	// Renew the token
 	renewResp, err := client.Auth.TokenRenewSelf(ctx, schema.TokenRenewSelfRequest{})
 	if err != nil {
 		return NewAuthError(AuthMethodToken, "renew", err, "failed to renew token")
 	}
-	
+
 	// Update TTL
 	if auth := renewResp.Auth; auth != nil {
 		t.TokenTTL = time.Duration(auth.LeaseDuration) * time.Second
 		t.LastRenewal = time.Now()
 	}
-	
+
 	return nil
 }
 

@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "talos-kms-vault.fullname" . }}
+  labels:
+    {{- include "talos-kms-vault.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "talos-kms-vault.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "talos-kms-vault.labels" . | nindent 8 }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      {{- with .Values.global.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "talos-kms-vault.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "talos-kms-vault.image" . }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            {{- include "talos-kms-vault.args" . | nindent 12 }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            {{- include "talos-kms-vault.vaultEnv" . | nindent 12 }}
+            {{- with .Values.env }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+          {{- if .Values.probes.liveness.enabled }}
+          livenessProbe:
+            {{- if .Values.probes.liveness.exec }}
+            exec:
+              {{- toYaml .Values.probes.liveness.exec | nindent 14 }}
+            {{- else if .Values.probes.liveness.tcpSocket }}
+            tcpSocket:
+              {{- toYaml .Values.probes.liveness.tcpSocket | nindent 14 }}
+            {{- else if .Values.probes.liveness.httpGet }}
+            httpGet:
+              {{- toYaml .Values.probes.liveness.httpGet | nindent 14 }}
+            {{- end }}
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.liveness.timeoutSeconds }}
+            successThreshold: {{ .Values.probes.liveness.successThreshold }}
+            failureThreshold: {{ .Values.probes.liveness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.readiness.enabled }}
+          readinessProbe:
+            {{- if .Values.probes.readiness.exec }}
+            exec:
+              {{- toYaml .Values.probes.readiness.exec | nindent 14 }}
+            {{- else if .Values.probes.readiness.tcpSocket }}
+            tcpSocket:
+              {{- toYaml .Values.probes.readiness.tcpSocket | nindent 14 }}
+            {{- else if .Values.probes.readiness.httpGet }}
+            httpGet:
+              {{- toYaml .Values.probes.readiness.httpGet | nindent 14 }}
+            {{- end }}
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.readiness.timeoutSeconds }}
+            successThreshold: {{ .Values.probes.readiness.successThreshold }}
+            failureThreshold: {{ .Values.probes.readiness.failureThreshold }}
+          {{- end }}
+          {{- if .Values.probes.startup.enabled }}
+          startupProbe:
+            {{- if .Values.probes.startup.exec }}
+            exec:
+              {{- toYaml .Values.probes.startup.exec | nindent 14 }}
+            {{- else if .Values.probes.startup.tcpSocket }}
+            tcpSocket:
+              {{- toYaml .Values.probes.startup.tcpSocket | nindent 14 }}
+            {{- else if .Values.probes.startup.httpGet }}
+            httpGet:
+              {{- toYaml .Values.probes.startup.httpGet | nindent 14 }}
+            {{- end }}
+            initialDelaySeconds: {{ .Values.probes.startup.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.startup.periodSeconds }}
+            timeoutSeconds: {{ .Values.probes.startup.timeoutSeconds }}
+            successThreshold: {{ .Values.probes.startup.successThreshold }}
+            failureThreshold: {{ .Values.probes.startup.failureThreshold }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            {{- if .Values.config.tls.enabled }}
+            - name: tls
+              mountPath: /etc/tls
+              readOnly: true
+            {{- end }}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
+      volumes:
+        {{- if .Values.config.tls.enabled }}
+        - name: tls
+          secret:
+            secretName: {{ .Values.config.tls.secretName | default (printf "%s-tls" (include "talos-kms-vault.fullname" .)) }}
+        {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

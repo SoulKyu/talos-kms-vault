@@ -1,0 +1,25 @@
+{{- if .Values.rbac.create -}}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "talos-kms-vault.fullname" . }}
+  labels:
+    {{- include "talos-kms-vault.labels" . | nindent 4 }}
+rules:
+  {{- toYaml .Values.rbac.rules | nindent 2 }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "talos-kms-vault.fullname" . }}
+  labels:
+    {{- include "talos-kms-vault.labels" . | nindent 4 }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "talos-kms-vault.fullname" . }}
+subjects:
+- kind: ServiceAccount
+  name: {{ include "talos-kms-vault.serviceAccountName" . }}
+  namespace: {{ .Release.Namespace }}
+{{- end }}

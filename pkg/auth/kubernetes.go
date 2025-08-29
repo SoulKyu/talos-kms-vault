@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	defaultServiceAccountPath = "/var/run/secrets/kubernetes.io/serviceaccount"
+	defaultServiceAccountPath  = "/var/run/secrets/kubernetes.io/serviceaccount"
 	defaultKubernetesMountPath = "kubernetes"
 )
 
@@ -31,7 +31,7 @@ func NewKubernetesAuth(config *KubernetesConfig, vaultAddr string) (*KubernetesA
 	if config == nil {
 		config = &KubernetesConfig{}
 	}
-	
+
 	// Set defaults
 	if config.ServiceAccountPath == "" {
 		config.ServiceAccountPath = defaultServiceAccountPath
@@ -39,7 +39,7 @@ func NewKubernetesAuth(config *KubernetesConfig, vaultAddr string) (*KubernetesA
 	if config.MountPath == "" {
 		config.MountPath = defaultKubernetesMountPath
 	}
-	
+
 	// Role is required
 	if config.Role == "" {
 		// Try to get from environment
@@ -48,12 +48,12 @@ func NewKubernetesAuth(config *KubernetesConfig, vaultAddr string) (*KubernetesA
 			return nil, NewAuthError(AuthMethodKubernetes, "new", ErrMissingConfiguration, "role is required")
 		}
 	}
-	
+
 	// Check if we're running in Kubernetes
 	if !isRunningInKubernetes(config.ServiceAccountPath) {
 		return nil, NewAuthError(AuthMethodKubernetes, "new", ErrMissingConfiguration, "not running in Kubernetes environment")
 	}
-	
+
 	return &KubernetesAuthenticator{
 		BaseAuthenticator: BaseAuthenticator{
 			Method:      AuthMethodKubernetes,
@@ -74,7 +74,7 @@ func (k *KubernetesAuthenticator) Authenticate(ctx context.Context) (*vault.Clie
 		return nil, NewAuthError(AuthMethodKubernetes, "authenticate", err, "failed to read service account JWT")
 	}
 	k.jwt = jwt
-	
+
 	// Create Vault client
 	client, err := vault.New(
 		vault.WithAddress(k.VaultAddr),
@@ -83,31 +83,31 @@ func (k *KubernetesAuthenticator) Authenticate(ctx context.Context) (*vault.Clie
 	if err != nil {
 		return nil, NewAuthError(AuthMethodKubernetes, "authenticate", err, "failed to create vault client")
 	}
-	
+
 	// Perform Kubernetes auth
 	authReq := schema.KubernetesLoginRequest{
 		Jwt:  jwt,
 		Role: k.role,
 	}
-	
+
 	resp, err := client.Auth.KubernetesLogin(ctx, authReq, vault.WithMountPath(k.mountPath))
 	if err != nil {
 		return nil, NewAuthError(AuthMethodKubernetes, "authenticate", err, "kubernetes login failed")
 	}
-	
+
 	// Set the token
 	if resp.Auth == nil || resp.Auth.ClientToken == "" {
 		return nil, NewAuthError(AuthMethodKubernetes, "authenticate", ErrAuthenticationFailed, "no token received from Vault")
 	}
-	
+
 	if err := client.SetToken(resp.Auth.ClientToken); err != nil {
 		return nil, NewAuthError(AuthMethodKubernetes, "authenticate", err, "failed to set token")
 	}
-	
+
 	// Store TTL
 	k.TokenTTL = time.Duration(resp.Auth.LeaseDuration) * time.Second
 	k.LastRenewal = time.Now()
-	
+
 	return client, nil
 }
 
@@ -121,7 +121,7 @@ func (k *KubernetesAuthenticator) Renew(ctx context.Context, client *vault.Clien
 		if err != nil {
 			return NewAuthError(AuthMethodKubernetes, "renew", err, "failed to read new JWT")
 		}
-		
+
 		// Check if JWT has changed (in case of rotation)
 		if newJWT != k.jwt {
 			// Re-authenticate with new JWT
@@ -129,12 +129,12 @@ func (k *KubernetesAuthenticator) Renew(ctx context.Context, client *vault.Clien
 				Jwt:  newJWT,
 				Role: k.role,
 			}
-			
+
 			resp, err := client.Auth.KubernetesLogin(ctx, authReq, vault.WithMountPath(k.mountPath))
 			if err != nil {
 				return NewAuthError(AuthMethodKubernetes, "renew", err, "re-authentication failed")
 			}
-			
+
 			if resp.Auth != nil && resp.Auth.ClientToken != "" {
 				if err := client.SetToken(resp.Auth.ClientToken); err != nil {
 					return NewAuthError(AuthMethodKubernetes, "renew", err, "failed to set new token")
@@ -145,16 +145,16 @@ func (k *KubernetesAuthenticator) Renew(ctx context.Context, client *vault.Clien
 				return nil
 			}
 		}
-		
+
 		return NewAuthError(AuthMethodKubernetes, "renew", err, "token renewal failed")
 	}
-	
+
 	// Update TTL from renewal response
 	if renewResp.Auth != nil {
 		k.TokenTTL = time.Duration(renewResp.Auth.LeaseDuration) * time.Second
 		k.LastRenewal = time.Now()
 	}
-	
+
 	return nil
 }
 
@@ -174,7 +174,7 @@ func (k *KubernetesAuthenticator) readServiceAccountJWT() (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("failed to read service account token: %w", err)
 	}
-	
+
 	return strings.TrimSpace(string(tokenBytes)), nil
 }
 
@@ -185,12 +185,12 @@ func isRunningInKubernetes(serviceAccountPath string) bool {
 	if _, err := os.Stat(tokenPath); err != nil {
 		return false
 	}
-	
+
 	// Also check for Kubernetes environment variables
 	if os.Getenv("KUBERNETES_SERVICE_HOST") != "" {
 		return true
 	}
-	
+
 	return false
 }
 

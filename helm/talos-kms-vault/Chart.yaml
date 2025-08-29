@@ -1,0 +1,25 @@
+apiVersion: v2
+name: talos-kms-vault
+description: A Helm chart for Talos KMS Vault - Proxy between Talos nodes and HashiCorp Vault for KMS disk encryption
+type: application
+version: 0.1.0
+appVersion: "latest"
+keywords:
+  - kms
+  - vault
+  - talos
+  - encryption
+  - security
+home: https://github.com/lightdiscord/talos-kms-vault
+sources:
+  - https://github.com/lightdiscord/talos-kms-vault
+maintainers:
+  - name: talos-kms-vault-team
+    email: maintainer@example.com
+annotations:
+  artifacthub.io/containsSecurityUpdates: "false"
+  artifacthub.io/changes: |
+    - Initial Helm chart release
+    - Multi-instance support with leader election
+    - Comprehensive security configuration
+    - Cilium network policy support
