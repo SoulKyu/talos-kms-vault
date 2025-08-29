@@ -165,7 +165,7 @@ jobs:
       run: |
         for chart in ./helm-packages/*.tgz; do
           if [ -f "$chart" ]; then
-            helm push "$chart" oci://${{ env.REGISTRY }}/${{ github.repository_owner }}
+            helm push "$chart" oci://${{ env.REGISTRY }}/soulkyu
           fi
         done
 
