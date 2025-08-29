@@ -1,4 +1,4 @@
-module github.com/lightdiscord/talos-kms-vault
+module github.com/soulkyu/talos-kms-vault
 
 go 1.22.2
 

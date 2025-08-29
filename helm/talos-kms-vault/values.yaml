@@ -10,7 +10,7 @@ global:
 # Image configuration
 image:
   registry: ghcr.io
-  repository: lightdiscord/talos-kms-vault
+  repository: soulkyu/talos-kms-vault
   tag: "latest"
   pullPolicy: IfNotPresent
 

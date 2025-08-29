@@ -10,9 +10,9 @@ keywords:
   - talos
   - encryption
   - security
-home: https://github.com/lightdiscord/talos-kms-vault
+home: https://github.com/soulkyu/talos-kms-vault
 sources:
-  - https://github.com/lightdiscord/talos-kms-vault
+  - https://github.com/soulkyu/talos-kms-vault
 maintainers:
   - name: talos-kms-vault-team
     email: maintainer@example.com

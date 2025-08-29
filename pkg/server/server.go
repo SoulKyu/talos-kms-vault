@@ -8,8 +8,8 @@ import (
 
 	"github.com/hashicorp/vault-client-go"
 	"github.com/hashicorp/vault-client-go/schema"
-	"github.com/lightdiscord/talos-kms-vault/pkg/validation"
 	"github.com/siderolabs/kms-client/api/kms"
+	"github.com/soulkyu/talos-kms-vault/pkg/validation"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )

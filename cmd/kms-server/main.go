@@ -6,19 +6,20 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/lightdiscord/talos-kms-vault/pkg/auth"
-	"github.com/lightdiscord/talos-kms-vault/pkg/leaderelection"
-	"github.com/lightdiscord/talos-kms-vault/pkg/server"
-	"github.com/lightdiscord/talos-kms-vault/pkg/validation"
-	"github.com/siderolabs/kms-client/api/kms"
-	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials"
 	"log/slog"
 	"net"
 	"os"
 	"os/signal"
 	"time"
+
+	"github.com/siderolabs/kms-client/api/kms"
+	"github.com/soulkyu/talos-kms-vault/pkg/auth"
+	"github.com/soulkyu/talos-kms-vault/pkg/leaderelection"
+	"github.com/soulkyu/talos-kms-vault/pkg/server"
+	"github.com/soulkyu/talos-kms-vault/pkg/validation"
+	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 var kmsFlags struct {

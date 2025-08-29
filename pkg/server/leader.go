@@ -7,8 +7,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/lightdiscord/talos-kms-vault/pkg/leaderelection"
 	"github.com/siderolabs/kms-client/api/kms"
+	"github.com/soulkyu/talos-kms-vault/pkg/leaderelection"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
