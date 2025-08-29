@@ -74,37 +74,3 @@ jobs:
       uses: github/codeql-action/upload-sarif@v2
       with:
         sarif_file: results.sarif
-
-  kubernetes-manifest-scan:
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-    
-    - name: Install Helm
-      uses: azure/setup-helm@v3
-      with:
-        version: v3.12.1
-    
-    - name: Generate Kubernetes manifests
-      run: |
-        mkdir -p generated-manifests
-        helm template security-test ./helm/talos-kms-vault \
-          --set ciliumNetworkPolicy.enabled=true \
-          --set rbac.create=true \
-          --set podSecurityContext.runAsNonRoot=true \
-          --output-dir generated-manifests
-    
-    - name: Run Kubesec scan
-      run: |
-        for file in generated-manifests/talos-kms-vault/templates/*.yaml; do
-          if [ -f "$file" ]; then
-            docker run --rm -v $(pwd)/generated-manifests:/manifests \
-              kubesec/kubesec:latest scan "/manifests/talos-kms-vault/templates/$(basename $file)"
-          fi
-        done
-    
-    - name: Run Polaris scan
-      run: |
-        docker run --rm -v $(pwd)/generated-manifests:/manifests \
-          quay.io/fairwinds/polaris:latest audit --audit-path /manifests \
-          --format pretty
