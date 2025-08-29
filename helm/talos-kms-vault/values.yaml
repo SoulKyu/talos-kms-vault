@@ -1,0 +1,262 @@
+# Default values for talos-kms-vault.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+# Global settings
+global:
+  imageRegistry: ""
+  imagePullSecrets: []
+
+# Image configuration
+image:
+  registry: ghcr.io
+  repository: lightdiscord/talos-kms-vault
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+# Deployment configuration
+replicaCount: 3
+
+nameOverride: ""
+fullnameOverride: ""
+
+# Service account configuration
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# Pod annotations and labels
+podAnnotations: {}
+podLabels: {}
+
+# Security context
+podSecurityContext:
+  fsGroup: 10001
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  capabilities:
+    drop:
+    - ALL
+
+# Service configuration
+service:
+  type: ClusterIP
+  port: 8080
+  targetPort: 8080
+  annotations: {}
+
+# Ingress configuration
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # nginx.ingress.kubernetes.io/backend-protocol: "GRPC"
+    # nginx.ingress.kubernetes.io/grpc-backend: "true"
+  hosts:
+    - host: talos-kms-vault.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  #  - secretName: talos-kms-vault-tls
+  #    hosts:
+  #      - talos-kms-vault.local
+
+# Resource limits and requests
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 3
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: 80
+
+# Node selector, tolerations and affinity
+nodeSelector: {}
+
+tolerations: []
+
+affinity: {}
+
+# Application configuration
+config:
+  # KMS API endpoint
+  apiEndpoint: ":8080"
+  
+  # Mount path for Vault Transit engine
+  mountPath: "transit"
+  
+  # TLS configuration
+  tls:
+    enabled: false
+    certPath: "/etc/tls/tls.crt"
+    keyPath: "/etc/tls/tls.key"
+    # Secret containing TLS certificates
+    secretName: ""
+  
+  # Validation configuration
+  validation:
+    enabled: true
+    allowUUIDVersions: "v4"  # v4, v1-v5, or any
+    disableEntropyCheck: false
+  
+  # Leader election configuration
+  leaderElection:
+    enabled: true
+    namespace: ""  # defaults to release namespace
+    name: "talos-kms-leader"
+    leaseDuration: "15s"
+    renewDeadline: "10s"
+    retryPeriod: "2s"
+
+# Vault configuration
+vault:
+  # Vault server address
+  addr: "https://vault.example.com:8200"
+  
+  # Authentication method: token, kubernetes, approle
+  auth:
+    method: "kubernetes"
+    
+    # Token authentication
+    token:
+      # Token value (use secret instead for production)
+      value: ""
+      # Secret containing the token
+      secretName: ""
+      secretKey: "token"
+    
+    # Kubernetes authentication
+    kubernetes:
+      role: "talos-kms-role"
+      mountPath: "kubernetes"
+    
+    # AppRole authentication
+    approle:
+      roleId: ""
+      secretId: ""
+      mountPath: "approle"
+      # Secrets for AppRole credentials
+      roleIdSecret:
+        name: ""
+        key: "role-id"
+      secretIdSecret:
+        name: ""
+        key: "secret-id"
+  
+  # Auto-renewal configuration
+  autoRenew: true
+
+# RBAC configuration
+rbac:
+  # Create RBAC resources
+  create: true
+  # Rules for the role (leader election requires lease management)
+  rules:
+    - apiGroups: ["coordination.k8s.io"]
+      resources: ["leases"]
+      verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+
+# Cilium Network Policy configuration
+ciliumNetworkPolicy:
+  enabled: false
+  ingress: {}
+    # Example:
+    # - fromCIDR:
+    #   - "10.0.0.0/8"
+    #   toPorts:
+    #   - ports:
+    #     - port: "8080"
+    #       protocol: TCP
+    #     rules:
+    #       l7proto: grpc
+  egress: {}
+    # Example:
+    # - toFQDNs:
+    #   - matchName: "vault.example.com"
+    #   toPorts:
+    #   - ports:
+    #     - port: "8200"
+    #       protocol: TCP
+    # - toEntities:
+    #   - "kube-apiserver"
+    #   - "kube-dns"
+
+# Probes configuration
+probes:
+  liveness:
+    enabled: true
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+    exec:
+      command:
+        - /bin/sh
+        - -c
+        - "ps aux | grep '[k]ms-server' || exit 1"
+  
+  readiness:
+    enabled: true
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 3
+    tcpSocket:
+      port: 8080
+  
+  startup:
+    enabled: false
+    initialDelaySeconds: 0
+    periodSeconds: 10
+    timeoutSeconds: 3
+    successThreshold: 1
+    failureThreshold: 30
+    tcpSocket:
+      port: 8080
+
+# Environment variables
+env: []
+# Example:
+# - name: CUSTOM_VAR
+#   value: "custom-value"
+# - name: SECRET_VAR
+#   valueFrom:
+#     secretKeyRef:
+#       name: my-secret
+#       key: secret-key
+
+# Extra volumes and volume mounts
+extraVolumes: []
+extraVolumeMounts: []
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1

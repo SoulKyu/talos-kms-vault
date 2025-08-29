@@ -1,0 +1,20 @@
+{{- if .Values.ciliumNetworkPolicy.enabled -}}
+apiVersion: "cilium.io/v2"
+kind: CiliumNetworkPolicy
+metadata:
+  name: {{ include "talos-kms-vault.fullname" . }}
+  labels:
+    {{- include "talos-kms-vault.labels" . | nindent 4 }}
+spec:
+  endpointSelector:
+    matchLabels:
+      {{- include "talos-kms-vault.selectorLabels" . | nindent 6 }}
+  {{- if .Values.ciliumNetworkPolicy.ingress }}
+  ingress:
+    {{- toYaml .Values.ciliumNetworkPolicy.ingress | nindent 4 }}
+  {{- end }}
+  {{- if .Values.ciliumNetworkPolicy.egress }}
+  egress:
+    {{- toYaml .Values.ciliumNetworkPolicy.egress | nindent 4 }}
+  {{- end }}
+{{- end }}
