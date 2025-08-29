@@ -33,8 +33,6 @@ var (
 	// UUID v4 specific pattern
 	uuidV4Pattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12}$`)
 	
-	// Pattern for sanitizing UUIDs for logging (replaces middle parts with *)
-	sanitizePattern = regexp.MustCompile(`([0-9a-fA-F]{8}-?[0-9a-fA-F]{1})[0-9a-fA-F]{1}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?([0-9a-fA-F]{2})[0-9a-fA-F]{10}`)
 )
 
 // UUIDValidator provides UUID validation functionality

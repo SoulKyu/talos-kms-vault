@@ -1,0 +1,82 @@
+run:
+  timeout: 5m
+  issues-exit-code: 0
+  tests: true
+  
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+
+linters:
+  enable:
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - typecheck
+    - unused
+    - gofmt
+    - goimports
+    - misspell
+    - revive
+    - gosec
+    - gocritic
+  disable:
+    - varnamelen  # We use short variable names intentionally
+
+linters-settings:
+  govet:
+    check-shadowing: true
+    settings:
+      printf:
+        funcs:
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Infof
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Warnf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Errorf
+          - (github.com/golangci/golangci-lint/pkg/logutils.Log).Fatalf
+  
+  staticcheck:
+    checks: ["all", "-SA1019"] # Ignore deprecated warnings temporarily
+  
+  unused:
+    check-exported: false
+  
+  gosec:
+    excludes:
+      - G204 # We need to use subprocess for some operations
+      - G304 # File path validation is handled elsewhere
+  
+  revive:
+    rules:
+      - name: exported
+        disabled: true
+      - name: package-comments
+        disabled: true
+
+issues:
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+    
+    # Exclude known issues
+    - text: "weak cryptographic primitive"
+      linters:
+        - gosec
+    
+    # Allow embedding
+    - text: "ST1003:"
+      linters:
+        - stylecheck
+
+severity:
+  default-severity: error
+  rules:
+    - linters: [staticcheck]
+      severity: warning

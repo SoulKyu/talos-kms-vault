@@ -147,7 +147,7 @@ func (m *Manager) renewalLoop(ctx context.Context) {
 			m.mu.RUnlock()
 			
 			if client == nil {
-				m.logger.Error("client is nil, cannot renew")
+				m.logger.Error("client is nil, cannot renew", "component", "auth-manager")
 				sleepDuration = 10 * time.Second
 				continue
 			}

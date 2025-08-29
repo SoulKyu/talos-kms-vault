@@ -65,7 +65,7 @@ func main() {
 	defer cancel()
 
 	if err := run(ctx, logger); err != nil {
-		logger.Error("Error during initialization", err)
+		logger.Error("Error during initialization", "error", err)
 	}
 }
 

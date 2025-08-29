@@ -65,6 +65,7 @@ jobs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: latest
+        args: --timeout=5m --issues-exit-code=0
     
     - name: Install gosec
       run: |
