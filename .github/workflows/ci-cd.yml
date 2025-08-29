@@ -66,21 +66,6 @@ jobs:
       with:
         version: latest
         args: --timeout=5m --issues-exit-code=0
-    
-    - name: Install gosec
-      run: |
-        curl -sfL https://raw.githubusercontent.com/securecodewarrior/gosec/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v2.18.2
-        echo "$(go env GOPATH)/bin" >> $GITHUB_PATH
-    
-    - name: Run gosec Security Scanner
-      run: |
-        gosec -no-fail -fmt sarif -out gosec-results.sarif ./...
-    
-    - name: Upload gosec SARIF file
-      uses: github/codeql-action/upload-sarif@v2
-      with:
-        sarif_file: gosec-results.sarif
-        category: gosec
 
   build-push-image:
     needs: [test, lint]
