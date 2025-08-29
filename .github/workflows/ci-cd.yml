@@ -142,15 +142,15 @@ jobs:
         version: v3.12.1
     
     - name: Lint Helm chart
-      run: helm lint ./helm/talos-kms-vault
+      run: helm lint ./helm/talos-kms-vault-chart
     
     - name: Template Helm chart
-      run: helm template test ./helm/talos-kms-vault --debug
+      run: helm template test ./helm/talos-kms-vault-chart --debug
     
     - name: Package Helm chart
       if: github.event_name == 'push' && (contains(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')
       run: |
-        helm package ./helm/talos-kms-vault --destination ./helm-packages
+        helm package ./helm/talos-kms-vault-chart --destination ./helm-packages
     
     - name: Log in to Container Registry for Helm
       if: github.event_name == 'push' && (contains(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main')

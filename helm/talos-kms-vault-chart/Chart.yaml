@@ -1,5 +1,5 @@
 apiVersion: v2
-name: talos-kms-vault
+name: talos-kms-vault-chart
 description: A Helm chart for Talos KMS Vault - Proxy between Talos nodes and HashiCorp Vault for KMS disk encryption
 type: application
 version: 0.1.0
