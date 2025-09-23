@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
+	"net/http"
 )
 
 var kmsFlags struct {
@@ -39,6 +40,10 @@ var kmsFlags struct {
 	leaderElectionLeaseDuration time.Duration
 	leaderElectionRenewDeadline time.Duration
 	leaderElectionRetryPeriod   time.Duration
+
+	// Health server flags
+	healthServerEnabled bool
+	healthServerAddr    string
 }
 
 func main() {
@@ -58,6 +63,10 @@ func main() {
 	flag.DurationVar(&kmsFlags.leaderElectionLeaseDuration, "leader-election-lease-duration", 15*time.Second, "Duration of the leader election lease")
 	flag.DurationVar(&kmsFlags.leaderElectionRenewDeadline, "leader-election-renew-deadline", 10*time.Second, "Deadline for renewing the leadership lease")
 	flag.DurationVar(&kmsFlags.leaderElectionRetryPeriod, "leader-election-retry-period", 2*time.Second, "Retry period for leadership acquisition")
+
+	// Health server flags
+	flag.BoolVar(&kmsFlags.healthServerEnabled, "health-server", true, "Enable health check server")
+	flag.StringVar(&kmsFlags.healthServerAddr, "health-server-addr", ":8081", "Health check server address")
 	flag.Parse()
 
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
@@ -121,6 +130,7 @@ func run(ctx context.Context, logger *slog.Logger) error {
 	// Determine which server to use (leader-aware or regular)
 	var kmsServer kms.KMSServiceServer
 	var leaderAwareServer *server.LeaderAwareServer
+	var healthHandler http.Handler
 
 	if kmsFlags.enableLeaderElection {
 		// Create leader election configuration
@@ -159,9 +169,11 @@ func run(ctx context.Context, logger *slog.Logger) error {
 		defer electionController.Stop()
 
 		kmsServer = leaderAwareServer
+		healthHandler = leaderAwareServer.CreateHealthHandler()
 		logger.Info("Leader election enabled", "identity", leaseConfig.Identity)
 	} else {
 		kmsServer = srv
+		healthHandler = srv.CreateHealthHandler()
 		logger.Info("Running in single-instance mode (no leader election)")
 	}
 
@@ -207,12 +219,30 @@ func run(ctx context.Context, logger *slog.Logger) error {
 
 	eg, ctx := errgroup.WithContext(ctx)
 
+	// Start health server if enabled
+	var healthServer *server.HealthServer
+	if kmsFlags.healthServerEnabled {
+		healthServer = server.NewHealthServer(kmsFlags.healthServerAddr, logger)
+		if err := healthServer.Start(healthHandler); err != nil {
+			return fmt.Errorf("failed to start health server: %w", err)
+		}
+	}
+
 	eg.Go(func() error {
 		return grpcSrv.Serve(lis)
 	})
 
 	eg.Go(func() error {
 		<-ctx.Done()
+
+		// Shutdown health server
+		if healthServer != nil {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			if err := healthServer.Stop(shutdownCtx); err != nil {
+				logger.Error("Failed to stop health server", "error", err)
+			}
+		}
 
 		grpcSrv.Stop()
 

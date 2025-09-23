@@ -43,6 +43,11 @@ spec:
             - name: grpc
               containerPort: {{ .Values.service.targetPort }}
               protocol: TCP
+            {{- if .Values.config.healthServer.enabled }}
+            - name: health
+              containerPort: {{ (split ":" .Values.config.healthServer.addr)._1 | default "8081" }}
+              protocol: TCP
+            {{- end }}
           env:
             - name: POD_NAME
               valueFrom:
@@ -58,7 +63,11 @@ spec:
             {{- end }}
           {{- if .Values.probes.liveness.enabled }}
           livenessProbe:
-            {{- if .Values.probes.liveness.exec }}
+            {{- if and .Values.config.healthServer.enabled (not .Values.probes.liveness.exec) (not .Values.probes.liveness.tcpSocket) }}
+            httpGet:
+              path: /healthz
+              port: health
+            {{- else if .Values.probes.liveness.exec }}
             exec:
               {{- toYaml .Values.probes.liveness.exec | nindent 14 }}
             {{- else if .Values.probes.liveness.tcpSocket }}
@@ -76,7 +85,11 @@ spec:
           {{- end }}
           {{- if .Values.probes.readiness.enabled }}
           readinessProbe:
-            {{- if .Values.probes.readiness.exec }}
+            {{- if and .Values.config.healthServer.enabled (not .Values.probes.readiness.exec) (not .Values.probes.readiness.tcpSocket) }}
+            httpGet:
+              path: /ready
+              port: health
+            {{- else if .Values.probes.readiness.exec }}
             exec:
               {{- toYaml .Values.probes.readiness.exec | nindent 14 }}
             {{- else if .Values.probes.readiness.tcpSocket }}

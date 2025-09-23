@@ -132,6 +132,11 @@ config:
     renewDeadline: "10s"
     retryPeriod: "2s"
 
+  # Health server configuration
+  healthServer:
+    enabled: true
+    addr: ":8081"
+
 # Vault configuration
 vault:
   # Vault server address
@@ -214,12 +219,14 @@ probes:
     timeoutSeconds: 3
     successThreshold: 1
     failureThreshold: 3
-    exec:
-      command:
-        - /bin/sh
-        - -c
-        - "ps aux | grep '[k]ms-server' || exit 1"
-  
+    # Will automatically use httpGet on /healthz if healthServer is enabled
+    # Override with exec or tcpSocket if needed:
+    # exec:
+    #   command:
+    #     - /bin/sh
+    #     - -c
+    #     - "ps aux | grep '[k]ms-server' || exit 1"
+
   readiness:
     enabled: true
     initialDelaySeconds: 5
@@ -227,8 +234,11 @@ probes:
     timeoutSeconds: 3
     successThreshold: 1
     failureThreshold: 3
-    tcpSocket:
-      port: 8080
+    # Will automatically use httpGet on /ready if healthServer is enabled
+    # This ensures only the leader pod receives traffic
+    # Override with exec or tcpSocket if needed:
+    # tcpSocket:
+    #   port: 8080
   
   startup:
     enabled: false

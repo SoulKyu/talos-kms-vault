@@ -157,4 +157,8 @@ Generate command line arguments
 - --leader-election-renew-deadline={{ .Values.config.leaderElection.renewDeadline }}
 - --leader-election-retry-period={{ .Values.config.leaderElection.retryPeriod }}
 {{- end }}
+{{- if .Values.config.healthServer.enabled }}
+- --health-server=true
+- --health-server-addr={{ .Values.config.healthServer.addr }}
+{{- end }}
 {{- end }}
