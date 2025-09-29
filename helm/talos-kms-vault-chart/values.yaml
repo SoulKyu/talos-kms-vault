@@ -121,6 +121,7 @@ config:
   validation:
     enabled: true
     allowUUIDVersions: "v4"  # v4, v1-v5, or any
+    uuidMode: "relaxed"  # strict (RFC 4122 compliant) or relaxed (any 36-char hex string)
     disableEntropyCheck: false
   
   # Leader election configuration

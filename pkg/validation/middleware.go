@@ -140,6 +140,9 @@ type ValidationConfig struct {
 	// Enable or disable validation
 	Enabled bool
 
+	// UUID validation mode (strict or relaxed)
+	UUIDValidationMode ValidationMode
+
 	// UUID validation settings
 	RequireUUIDv4 bool
 	CheckEntropy  bool
@@ -157,6 +160,7 @@ type ValidationConfig struct {
 func DefaultValidationConfig() *ValidationConfig {
 	return &ValidationConfig{
 		Enabled:                 true,
+		UUIDValidationMode:      ValidationModeStrict, // Default to strict RFC 4122
 		RequireUUIDv4:           true,
 		CheckEntropy:            true,
 		MaxUUIDLength:           36,
@@ -173,6 +177,7 @@ func NewValidationMiddlewareFromConfig(config *ValidationConfig, logger *slog.Lo
 	}
 
 	validator := &UUIDValidator{
+		ValidationMode:  config.UUIDValidationMode,
 		RequireVersion4: config.RequireUUIDv4,
 		CheckEntropy:    config.CheckEntropy,
 		AllowHyphens:    true,

@@ -141,6 +141,9 @@ Generate command line arguments
 {{- if .Values.config.validation.allowUUIDVersions }}
 - --allow-uuid-versions={{ .Values.config.validation.allowUUIDVersions }}
 {{- end }}
+{{- if .Values.config.validation.uuidMode }}
+- --uuid-validation-mode={{ .Values.config.validation.uuidMode }}
+{{- end }}
 {{- if .Values.config.validation.disableEntropyCheck }}
 - --disable-entropy-check=true
 {{- end }}

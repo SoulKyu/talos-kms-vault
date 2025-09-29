@@ -24,14 +24,15 @@ import (
 )
 
 var kmsFlags struct {
-	apiEndpoint       string
-	mountPath         string
-	disableValidation bool
-	allowUUIDVersions string
-	disableEntropy    bool
-	enableTLS         bool
-	tlsCertFile       string
-	tlsKeyFile        string
+	apiEndpoint        string
+	mountPath          string
+	disableValidation  bool
+	allowUUIDVersions  string
+	uuidValidationMode string
+	disableEntropy     bool
+	enableTLS          bool
+	tlsCertFile        string
+	tlsKeyFile         string
 
 	// Leader election flags
 	enableLeaderElection        bool
@@ -51,6 +52,7 @@ func main() {
 	flag.StringVar(&kmsFlags.mountPath, "mount-path", "transit", "Mount path for the Transit secret engine")
 	flag.BoolVar(&kmsFlags.disableValidation, "disable-validation", false, "Disable UUID validation (NOT recommended for production)")
 	flag.StringVar(&kmsFlags.allowUUIDVersions, "allow-uuid-versions", "v4", "Allowed UUID versions (v4, v1-v5, or any)")
+	flag.StringVar(&kmsFlags.uuidValidationMode, "uuid-validation-mode", "strict", "UUID validation mode (strict or relaxed)")
 	flag.BoolVar(&kmsFlags.disableEntropy, "disable-entropy-check", false, "Disable entropy checking for UUIDs")
 	flag.BoolVar(&kmsFlags.enableTLS, "enable-tls", false, "Enable TLS/HTTPS for gRPC server")
 	flag.StringVar(&kmsFlags.tlsCertFile, "tls-cert", "server.crt", "Path to TLS certificate file")
@@ -266,7 +268,17 @@ func createValidationConfig() *validation.ValidationConfig {
 		return config
 	}
 
-	// Handle UUID version requirements
+	// Handle UUID validation mode
+	switch kmsFlags.uuidValidationMode {
+	case "strict":
+		config.UUIDValidationMode = validation.ValidationModeStrict
+	case "relaxed":
+		config.UUIDValidationMode = validation.ValidationModeRelaxed
+	default:
+		config.UUIDValidationMode = validation.ValidationModeStrict
+	}
+
+	// Handle UUID version requirements (only applies in strict mode)
 	switch kmsFlags.allowUUIDVersions {
 	case "v4":
 		config.RequireUUIDv4 = true
@@ -277,12 +289,21 @@ func createValidationConfig() *validation.ValidationConfig {
 		config.RequireUUIDv4 = true
 	}
 
-	// Entropy checking
+	// Entropy checking (only applies in strict mode)
 	config.CheckEntropy = !kmsFlags.disableEntropy
 
 	// Environment variable overrides
 	if disableValidation := os.Getenv("KMS_DISABLE_VALIDATION"); disableValidation == "true" {
 		config.Enabled = false
+	}
+
+	if uuidMode := os.Getenv("KMS_UUID_VALIDATION_MODE"); uuidMode != "" {
+		switch uuidMode {
+		case "strict":
+			config.UUIDValidationMode = validation.ValidationModeStrict
+		case "relaxed":
+			config.UUIDValidationMode = validation.ValidationModeRelaxed
+		}
 	}
 
 	if disableEntropy := os.Getenv("KMS_DISABLE_ENTROPY_CHECK"); disableEntropy == "true" {

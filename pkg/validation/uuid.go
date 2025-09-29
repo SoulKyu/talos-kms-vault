@@ -8,6 +8,16 @@ import (
 	"strings"
 )
 
+// ValidationMode defines the UUID validation mode
+type ValidationMode string
+
+const (
+	// ValidationModeStrict enforces RFC 4122 compliant UUIDs
+	ValidationModeStrict ValidationMode = "strict"
+	// ValidationModeRelaxed accepts any 36-character hex string with hyphens
+	ValidationModeRelaxed ValidationMode = "relaxed"
+)
+
 var (
 	// ErrInvalidUUID is returned when the UUID format is invalid
 	ErrInvalidUUID = errors.New("invalid UUID format")
@@ -32,14 +42,20 @@ var (
 
 	// UUID v4 specific pattern
 	uuidV4Pattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?4[0-9a-fA-F]{3}-?[89abAB][0-9a-fA-F]{3}-?[0-9a-fA-F]{12}$`)
+
+	// Relaxed UUID pattern - any 36-character hex string with hyphens in standard positions
+	uuidRelaxedPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 )
 
 // UUIDValidator provides UUID validation functionality
 type UUIDValidator struct {
-	// RequireVersion4 enforces UUID v4 format
+	// ValidationMode determines the validation strictness
+	ValidationMode ValidationMode
+
+	// RequireVersion4 enforces UUID v4 format (only in strict mode)
 	RequireVersion4 bool
 
-	// CheckEntropy performs entropy validation
+	// CheckEntropy performs entropy validation (only in strict mode)
 	CheckEntropy bool
 
 	// MinEntropyBits minimum entropy required (default: 122 bits for UUID v4)
@@ -55,11 +71,12 @@ type UUIDValidator struct {
 // NewUUIDValidator creates a new UUID validator with default settings
 func NewUUIDValidator() *UUIDValidator {
 	return &UUIDValidator{
-		RequireVersion4: true, // Default to UUID v4 for security
-		CheckEntropy:    true, // Enable entropy checking
-		MinEntropyBits:  122,  // UUID v4 has 122 bits of entropy
-		AllowHyphens:    true, // Allow standard UUID format
-		MaxLength:       36,   // Standard UUID length with hyphens
+		ValidationMode:  ValidationModeStrict, // Default to strict RFC 4122 validation
+		RequireVersion4: true,                 // Default to UUID v4 for security
+		CheckEntropy:    true,                 // Enable entropy checking
+		MinEntropyBits:  122,                  // UUID v4 has 122 bits of entropy
+		AllowHyphens:    true,                 // Allow standard UUID format
+		MaxLength:       36,                   // Standard UUID length with hyphens
 	}
 }
 
@@ -79,17 +96,27 @@ func (v *UUIDValidator) ValidateNodeUUID(uuid string) error {
 		normalizedUUID = strings.ReplaceAll(uuid, "-", "")
 	}
 
-	// Basic format validation
-	if !v.isValidFormat(normalizedUUID) {
-		return fmt.Errorf("%w: failed format check", ErrInvalidUUID)
+	// Format validation based on mode
+	if v.ValidationMode == ValidationModeRelaxed {
+		// In relaxed mode, only check basic hex format with hyphens
+		if !v.isValidRelaxedFormat(normalizedUUID) {
+			return fmt.Errorf("%w: failed relaxed format check (expected: XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX)", ErrInvalidUUID)
+		}
+		// Skip version and entropy checks in relaxed mode
+		return nil
 	}
 
-	// Version-specific validation
+	// Strict mode validation (RFC 4122 compliant)
+	if !v.isValidFormat(normalizedUUID) {
+		return fmt.Errorf("%w: failed strict RFC 4122 format check", ErrInvalidUUID)
+	}
+
+	// Version-specific validation (only in strict mode)
 	if v.RequireVersion4 && !v.isUUIDv4(normalizedUUID) {
 		return fmt.Errorf("%w: UUID v4 required", ErrUUIDVersionNotSupported)
 	}
 
-	// Entropy validation
+	// Entropy validation (only in strict mode)
 	if v.CheckEntropy {
 		if err := v.validateEntropy(normalizedUUID); err != nil {
 			return err
@@ -102,6 +129,11 @@ func (v *UUIDValidator) ValidateNodeUUID(uuid string) error {
 // isValidFormat checks if the UUID matches RFC 4122 format
 func (v *UUIDValidator) isValidFormat(uuid string) bool {
 	return uuidPattern.MatchString(uuid)
+}
+
+// isValidRelaxedFormat checks if the string is a 36-character hex string with hyphens
+func (v *UUIDValidator) isValidRelaxedFormat(uuid string) bool {
+	return uuidRelaxedPattern.MatchString(uuid)
 }
 
 // isUUIDv4 checks if the UUID is version 4
@@ -193,8 +225,8 @@ func SanitizeForLogging(uuid string) string {
 		return "<empty>"
 	}
 
-	// If it's not a valid UUID format, just show length
-	if !uuidPattern.MatchString(uuid) {
+	// Check both strict and relaxed patterns for sanitization
+	if !uuidPattern.MatchString(uuid) && !uuidRelaxedPattern.MatchString(uuid) {
 		return fmt.Sprintf("<invalid-uuid-len-%d>", len(uuid))
 	}
 
